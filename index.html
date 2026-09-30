@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VELA QA Studio - Test Case & Bug Assistant</title>
+  <!-- Tailwind CSS & Icons & File Parsers -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <!-- Mammoth.js đọc file Word .docx -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
+  <!-- PDF.js đọc tài liệu file PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen font-sans">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white text-xl shadow">
+          <i class="ph-bold ph-truck"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-bold text-slate-900 leading-tight">VELA QA Studio</h1>
+            <span class="bg-indigo-100 text-indigo-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">Logistics Specialist</span>
+          </div>
+          <p class="text-xs text-slate-500">Phân tích Feature Document / SRS • Tạo Test Case, Checklist & Bug Ticket</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <input 
+          type="password" 
+          id="apiKeyInput" 
+          placeholder="Nhập Gemini API Key..." 
+          class="text-xs px-3 py-2 border border-slate-300 rounded-lg w-48 sm:w-60 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+        <button id="saveKeyBtn" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg font-medium transition">
+          Lưu Key
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Cột trái: Input Studio -->
+    <section class="lg:col-span-5 flex flex-col space-y-4">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-full">
+        
+        <!-- Chọn chế độ tạo -->
+        <label class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">1. Định dạng đầu ra:</label>
+        <div class="grid grid-cols-3 gap-2 mb-3">
+          <button type="button" class="mode-btn active flex flex-col items-center p-2 rounded-xl border border-indigo-500 bg-indigo-50/70 text-indigo-700 font-medium text-xs transition" data-mode="testcase">
+            <i class="ph-bold ph-table text-base mb-1"></i>
+            <span>Test Case</span>
+          </button>
+          <button type="button" class="mode-btn flex flex-col items-center p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-medium text-xs transition" data-mode="checklist">
+            <i class="ph-bold ph-check-square-offset text-base mb-1"></i>
+            <span>Checklist</span>
+          </button>
+          <button type="button" class="mode-btn flex flex-col items-center p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-medium text-xs transition" data-mode="bug">
+            <i class="ph-bold ph-bug text-base mb-1"></i>
+            <span>Bug Ticket</span>
+          </button>
+        </div>
+
+        <!-- Bộ lọc ngữ cảnh Logistics VELA -->
+        <div class="grid grid-cols-2 gap-2 mb-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">Đơn vị (NC):</label>
+            <select id="ctxNC" class="w-full text-xs p-1.5 border border-slate-300 rounded-lg bg-white">
+              <option value="ALL">Tất cả NC / Chung</option>
+              <option value="ITLLOG">ITLLOG (eTMS - Road FTL, LCL, FCL)</option>
+              <option value="ITLFM">ITLFM (eFMS - Sea FCL/LCL, Air)</option>
+              <option value="SEINO">SEINO (Dash - Road FTL, LCL, FCL)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">Cổng / Portal:</label>
+            <select id="ctxPortal" class="w-full text-xs p-1.5 border border-slate-300 rounded-lg bg-white">
+              <option value="VELA Core">VELA Core (Quản trị nội bộ / Ops)</option>
+              <option value="Customer Portal">Customer Portal (Khách hàng)</option>
+              <option value="Supplier Portal">Supplier Portal (Nhà xe / Vendor)</option>
+              <option value="All Portals">Tất cả Portal (End-to-End)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tải tài liệu Feature Document / SRS -->
+        <div class="mb-3">
+          <label class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+            <span>2. Tài liệu mô tả tính năng (Feature Document):</span>
+            <span class="text-[10px] text-indigo-600 font-normal">PDF, DOCX, TXT, MD</span>
+          </label>
+          <div 
+            id="dropZone" 
+            class="border-2 border-dashed border-slate-300 hover:border-indigo-400 bg-slate-50 hover:bg-indigo-50/40 rounded-xl p-3 text-center cursor-pointer transition"
+          >
+            <input type="file" id="fileInput" class="hidden" accept=".txt,.md,.doc,.docx,.pdf" />
+            <div class="flex items-center justify-center space-x-2">
+              <i class="ph-bold ph-file-doc text-xl text-indigo-600"></i>
+              <span class="text-xs font-semibold text-slate-700">Tải lên file tài liệu Feature / PRD / Specs</span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1">Kéo thả file tài liệu vào đây để AI đọc tự động</p>
+            <div id="fileInfo" class="hidden mt-2 text-xs text-indigo-700 bg-indigo-50 py-1 px-2.5 rounded-lg font-medium border border-indigo-100 flex items-center justify-between">
+              <span id="fileNameText" class="truncate"></span>
+              <button type="button" id="removeFileBtn" class="text-slate-400 hover:text-rose-500 ml-2">
+                <i class="ph-bold ph-x"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Nội dung Document hoặc AC bổ sung -->
+        <div class="flex-1 flex flex-col">
+          <label class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+            <span>3. Nội dung tài liệu hoặc AC / Yêu cầu cụ thể:</span>
+            <span class="text-[10px] text-slate-400 font-normal">Có thể dán trực tiếp hoặc bổ sung scope</span>
+          </label>
+          <textarea 
+            id="acContentInput" 
+            rows="8" 
+            placeholder="Nếu đã tải file tài liệu ở trên: Bạn có thể để trống, hoặc ghi chú thêm phạm vi cần tập trung (ví dụ: 'Chỉ viết test case cho phần validation form và trigger API sang eTMS').
+
+Nếu không có file: Bạn có thể dán toàn bộ tài liệu specs, mô tả màn hình, hoặc Acceptance Criteria vào đây..." 
+            class="w-full flex-1 p-3 text-xs leading-relaxed border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans resize-none bg-slate-50/50"
+          ></textarea>
+        </div>
+
+        <!-- Tuỳ chọn Test Scope -->
+        <div class="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-2 text-xs">
+          <label class="inline-flex items-center text-slate-600 cursor-pointer">
+            <input type="checkbox" id="chkIntegration" checked class="rounded text-indigo-600 focus:ring-indigo-500 mr-1.5" />
+            Tích hợp API (eTMS/eFMS/Dash)
+          </label>
+          <label class="inline-flex items-center text-slate-600 cursor-pointer">
+            <input type="checkbox" id="chkEdge" checked class="rounded text-indigo-600 focus:ring-indigo-500 mr-1.5" />
+            BVA & Negative Flows
+          </label>
+          <label class="inline-flex items-center text-slate-600 cursor-pointer">
+            <input type="checkbox" id="chkSecurity" checked class="rounded text-indigo-600 focus:ring-indigo-500 mr-1.5" />
+            Quyền hạn Portal & Data Isolation
+          </label>
+        </div>
+
+        <!-- Nút Tạo -->
+        <button 
+          id="btnGenerate" 
+          class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm py-2.5 px-4 rounded-xl shadow transition flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          <i class="ph-bold ph-lightning"></i>
+          <span id="btnText">Phân tích Feature & Tạo Test Cases</span>
+        </button>
+
+      </div>
+    </section>
+
+    <!-- Cột phải: Output Studio -->
+    <section class="lg:col-span-7 flex flex-col space-y-4">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[620px]">
+        
+        <!-- Header output -->
+        <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+          <div class="flex items-center space-x-2">
+            <h2 id="outputTitle" class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <i class="ph-bold ph-table text-indigo-600"></i>
+              Bảng Test Cases (<span id="resultCount">0</span>)
+            </h2>
+          </div>
+          
+          <div class="flex items-center gap-2">
+            <button id="btnExportCSV" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1 transition">
+              <i class="ph-bold ph-download-simple"></i> Xuất CSV
+            </button>
+            <button id="btnCopyResult" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1 transition">
+              <i class="ph-bold ph-copy"></i> Copy Markdown / Text
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div id="filterBar" class="py-2.5 flex flex-wrap items-center gap-2 border-b border-slate-100">
+          <input 
+            type="text" 
+            id="filterSearch" 
+            placeholder="Tìm theo Scenario, Steps, Module..." 
+            class="text-xs px-3 py-1.5 border border-slate-200 rounded-lg flex-1 min-w-[150px] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+          <select id="filterPriority" class="text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white">
+            <option value="ALL">Tất cả Priority</option>
+            <option value="P0">P0 - Critical</option>
+            <option value="P1">P1 - High</option>
+            <option value="P2">P2 - Medium</option>
+            <option value="P3">P3 - Low</option>
+          </select>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loadingState" class="hidden flex-1 flex flex-col items-center justify-center py-20">
+          <div class="animate-spin rounded-full h-10 w-10 border-4 border-indigo-600 border-t-transparent mb-3"></div>
+          <p class="text-xs font-semibold text-slate-700">Gemini đang nghiên cứu Feature Document và đối chiếu nghiệp vụ VELA...</p>
+          <p class="text-[11px] text-slate-400 mt-1">Đang bóc tách luồng nghiệp vụ, kiểm tra trạng thái và validation</p>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="flex-1 flex flex-col items-center justify-center py-24 text-slate-400">
+          <i class="ph-thin ph-file-text text-5xl mb-2 text-slate-300"></i>
+          <p class="text-xs">Chưa có dữ liệu. Vui lòng tải tài liệu Feature Document hoặc dán nội dung rồi bấm bắt đầu.</p>
+        </div>
+
+        <!-- Views -->
+        <div id="testCaseView" class="hidden flex-1 overflow-x-auto mt-2">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-100/70 border-y border-slate-200 text-slate-600 font-semibold">
+                <th class="py-2.5 px-2.5 w-16">ID</th>
+                <th class="py-2.5 px-3">Module / Kịch bản (Scenario)</th>
+                <th class="py-2.5 px-3">Các bước & Dữ liệu Test</th>
+                <th class="py-2.5 px-3">Kết quả mong đợi</th>
+                <th class="py-2.5 px-2 text-center w-14">Loại</th>
+                <th class="py-2.5 px-2 text-center w-12">Prio</th>
+              </tr>
+            </thead>
+            <tbody id="tcTableBody" class="divide-y divide-slate-100 text-slate-700"></tbody>
+          </table>
+        </div>
+
+        <div id="checklistView" class="hidden flex-1 overflow-y-auto mt-2 space-y-2 pr-1"></div>
+        <div id="bugView" class="hidden flex-1 overflow-y-auto mt-2 pr-1 space-y-4"></div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Script Logic -->
+  <script src="app.js"></script>
+</body>
+</html>

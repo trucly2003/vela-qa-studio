@@ -1,0 +1,24 @@
+/* Tùy chỉnh thanh cuộn cho gọn gàng */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Đảm bảo bảng không bị co dúm trên màn hình nhỏ */
+table {
+  min-width: 600px;
+}
